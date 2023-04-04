@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express');
 const multer = require('multer');
 const cors = require('cors');
@@ -7,10 +8,21 @@ const bcrypt = require("bcrypt");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const app = express();
+const bodyParser = require("body-parser")
 
+
+
+// app.use(bodyParser.json());
+// app.use(bodyParser.urlencoded({extended: true}));
+
+app.use(express.json())
+
+app.use(express.urlencoded({extended:false}))
 
 function authenticateTokenMiddleware(req, res, next) {
+ 
   const authHeader = req.headers["authorization"];
+  console.log(authHeader)
   const token = authHeader && authHeader.split(" ")[1];
   if (token == null) return res.sendStatus(401);
 
@@ -65,7 +77,6 @@ app.post("/register", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
-  console.log("email", email, "password", password);
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     return res.status(400).json({ message: "Invalid credentials" });
@@ -80,7 +91,7 @@ app.post("/login", async (req, res) => {
 
 // create a book 
 app.post("/books", authenticateTokenMiddleware, upload.single('image'), async (req, res) => {
-  console.log("req.file", req.file);
+
   const { title, author, publisher, year, pages } = req.body;
   try {
     const book = await prisma.book.create({
@@ -90,7 +101,7 @@ app.post("/books", authenticateTokenMiddleware, upload.single('image'), async (r
         publisher,
         year: parseInt(year),
         pages: parseInt(pages),
-        image: req.file.path // add the path to the uploaded image to the book data
+        image: req.file.path// add the path to the uploaded image to the book data
       },
     });
     res.json({ book });
@@ -114,6 +125,7 @@ app.get("/books", async (req, res) => {
 app.put("/books/:id", authenticateTokenMiddleware, async (req, res) => {
   const { id } = req.params;
   const { title, author, publisher, year, pages } = req.body;
+  console.log(req.body)
   const book = await prisma.book.update({
     where: { id: Number(id) },
     data: {
@@ -137,6 +149,20 @@ app.delete("/books/:id", authenticateTokenMiddleware, async (req, res) => {
   res.json({ book });
 });
 
+// get book by id 
+app.get("/books/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const book = await prisma.book.findUnique({
+      where: { id: Number(id) },
+    });
+    res.json({ book });
+  }
+  catch (e) {
+    console.log(e);
+    res.status(400).json({ message: "Something went wrong" });
+  }
+});
 
 // Start the server
 app.listen(8000, () => {
